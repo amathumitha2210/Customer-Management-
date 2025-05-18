@@ -21,43 +21,13 @@ mongoose.connect('mongodb://localhost:27017/customerdb', {
   .catch(console.error);
 
 // --- API Routes ---
-app.get('/api/customers', async (req, res) => {
-  try {
-    const { page = 1, limit = 20, search = '' } = req.query;
-    const query = search
-      ? {
-          $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { nic: { $regex: search, $options: 'i' } },
-            { "addresses.city": { $regex: search, $options: 'i' } }
-          ]
-        }
-      : {};
 
-    const customers = await Customer.find(query)
-      .populate({
-        path: 'familyMembers',
-        select: 'name nic addresses',
-      })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
-    const total = await Customer.countDocuments(query);
-
-    res.json({ total, page: Number(page), limit: Number(limit), customers });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// Get a single customer with family members
-// Example GET /api/customers route (with pagination)
+// Get all customers with family members
 app.get('/api/customers', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
     const customers = await Customer.find()
-      .populate('familyMembers', 'name nic')  // <-- populate familyMembers with only name and nic fields
+      .populate('familyMembers', 'name nic') // populate only necessary fields
       .skip((page - 1) * limit)
       .limit(Number(limit))
       .exec();
@@ -70,6 +40,19 @@ app.get('/api/customers', async (req, res) => {
   }
 });
 
+// Get a single customer with family members
+app.get('/api/customers/:id', async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id)
+      .populate('familyMembers', 'name nic')
+      .exec();
+
+    if (!customer) return res.status(404).json({ error: "Customer not found" });
+    res.json(customer);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Create a new customer
 app.post('/api/customers', async (req, res) => {
@@ -165,18 +148,6 @@ app.post('/api/customers/bulk-upload', upload.single('file'), async (req, res) =
 
         const mobiles = row.Mobiles ? row.Mobiles.split(',').map(m => m.trim()) : [];
 
-        // Extract and format familyMembers from Excel cell (expected: "Name1:NIC1,Name2:NIC2")
-        let familyMembers = [];
-        if (row.FamilyMembers) {
-          familyMembers = row.FamilyMembers.split(',').map(entry => {
-            const [name, nic] = entry.split(':').map(x => x.trim());
-            if (name && nic) {
-              return { name, nic };
-            }
-            return null;
-          }).filter(fm => fm); // remove invalid ones
-        }
-
         return {
           updateOne: {
             filter: { nic: row.NIC },
@@ -185,7 +156,6 @@ app.post('/api/customers/bulk-upload', upload.single('file'), async (req, res) =
                 name: row.Name,
                 dob,
                 mobiles,
-                familyMembers,
                 addresses: [{
                   addressLine1: row.AddressLine1 || '',
                   addressLine2: row.AddressLine2 || '',
@@ -209,7 +179,6 @@ app.post('/api/customers/bulk-upload', upload.single('file'), async (req, res) =
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // Server start
 const PORT = process.env.PORT || 5000;

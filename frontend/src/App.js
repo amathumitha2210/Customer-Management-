@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Container, Button } from 'react-bootstrap';
 import { fetchCustomers } from './api/api';
-import CustomerForm from './components/CustomerForm';
-import BulkUpload from './components/BulkUpload';
-import CustomerTable from './components/CustomerTable';
+import CustomerForm from './compone/CustomerForm';
+import BulkUpload from './compone/BulkUpload';
+import CustomerTable from './compone/CustomerTable';
 import './styles/custom.css';
 
 function App() {
